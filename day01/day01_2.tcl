@@ -15,8 +15,12 @@ proc count_ups { input } {
 
 set windows [list]
 set lastwindowstart [expr [llength $input] - 2]
+
 for { set i 0 } { $i < $lastwindowstart } { incr i } {
-    lappend windows [expr [lindex $input $i] + [lindex $input [expr $i + 1]] + [lindex $input [expr $i + 2]]]
+    set window [lrange $input $i [expr $i + 3]]
+    lassign $window a b c
+
+    lappend windows [expr $a + $b + $c]
 }
 
 puts [count_ups $windows]
