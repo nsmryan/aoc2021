@@ -1,10 +1,10 @@
 package require struct::set
 
-set input input.txt
 set input example.txt
+set input input.txt
 
-set lines [split [read [open $input]] "\n"]
-set lines {{acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ab | cdfeb fcadb cdfeb cdbaf}}
+set lines [split [string trim [read [open $input]]] "\n"]
+#set lines {{acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ab | cdfeb fcadb cdfeb cdbaf}}
 
 set digitsegments { 
     0 { a b c e f g }
@@ -18,11 +18,13 @@ set digitsegments {
     8 { a b c d e f g }
     9 { a b c d f g }
 }
+
 set segmentnames { a b c d e f g }
 
-set guesses [list]
+set initialguesses [list]
 foreach name $segmentnames {
-    dict set guesses $name $segmentnames
+    #dict set initialguesses $name $segmentnames
+    dict set initialguesses $name [list]
 }
 
 proc enlist { str } {
@@ -33,38 +35,83 @@ proc enlist { str } {
     return $chrs
 }
 
-set oneslength [llength [dict get $digitsegments 1]]
-set fourslength [llength [dict get $digitsegments 4]]
-set sevenslength [llength [dict get $digitsegments 7]]
-set eigthslength [llength [dict get $digitsegments 8]]
+proc comp { a b } {
+    if { [llength $a] < [llength $b] } {
+        return -1
+    } elseif { [llength $a] > [llength $b] } {
+        return 1
+    } else {
+        return 0
+    }
+}
 
+set total 0
 foreach line $lines {
     lassign [split $line "|"] digits answers
 
-    set mapping $guesses
-
+    set mapping [list]
+    set remaining [list]
     foreach digit $digits {
         set seglist [enlist $digit]
-
-        if { [string length $digit] == $oneslength } {
-            foreach seg [dict get $digitsegments 1] {
-                dict set mapping $seg [struct::set intersect $seglist [dict get $mapping $seg]]
-            }
-        } elseif { [string length $digit] == $fourslength } {
-            foreach seg [dict get $digitsegments 4] {
-                dict set mapping $seg [struct::set intersect $seglist [dict get $mapping $seg]]
-            }
-        } elseif { [string length $digit] == $sevenslength } {
-            foreach seg [dict get $digitsegments 7] {
-                dict set mapping $seg [struct::set intersect $seglist [dict get $mapping $seg]]
-            }
-        } elseif { [string length $digit] == $eigthslength } {
-            foreach seg [dict get $digitsegments 8] {
-                dict set mapping $seg [struct::set intersect $seglist [dict get $mapping $seg]]
-            }
+        if { [struct::set size $seglist] == 2 } {
+            dict set mapping 1 $seglist
+        } elseif { [struct::set size $seglist] == 7 } {
+            dict set mapping 8 $seglist
+        } elseif { [struct::set size $seglist] == 3 } {
+            dict set mapping 7 $seglist
+        } elseif { [struct::set size $seglist] == 4 } {
+            dict set mapping 4 $seglist
+        } else {
+            lappend remaining $seglist
         }
     }
 
-    puts $mapping
+    set one [dict get $mapping 1]
+    set four [dict get $mapping 4]
+    set seven [dict get $mapping 7]
+    set eigth [dict get $mapping 8]
+
+    set remaining [lsort -decreasing -command comp $remaining]
+    foreach remain $remaining {
+        if { [llength $remain] == 6 } {
+            if { [struct::set equal [struct::set intersect $four $remain] $four] } {
+                dict set mapping 9 $remain
+            } elseif { [struct::set equal [struct::set intersect $one $remain] $one] } {
+                dict set mapping 0 $remain
+            } else {
+                dict set mapping 6 $remain
+            }
+        } elseif { [llength $remain] == 5 } {
+            if { [struct::set size [struct::set intersect [dict get $mapping 9] $remain]] == 4 } {
+                dict set mapping 2 $remain
+            } elseif { [struct::set size [struct::set intersect $one $remain]] == 2 } {
+                dict set mapping 3 $remain
+            } else {
+                dict set mapping 5 $remain
+            }
+        } else {
+            throw INVALIDREMAIN "Segments $remain unexpected"
+        }
+    }
+
+    if { [llength [dict keys $mapping]] != 10 } {
+        throw INVALIDMAP "Mapping too short: $mapping, \n[lsort -integer [dict keys $mapping]]"
+    }
+
+    set decoded ""
+    foreach answer $answers {
+        dict for { num map } $mapping {
+            if { [struct::set equal [enlist $answer] $map] } {
+                set decoded "${decoded}$num"
+                break
+            }
+        }
+    }
+    while { [string index $decoded 0] == "0" } {
+        set decoded [string range $decoded 1 end]
+    }
+    incr total $decoded
 }
+
+puts $total
 
