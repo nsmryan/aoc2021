@@ -14,15 +14,15 @@ struct::matrix costs
 
 set height [llength $lines]
 set width [string length [lindex $lines 0]]
-map add rows $height
-map add columns $width
 
-costs add rows $height
-costs add columns $width
+costs add rows [expr $height * 5]
+costs add columns [expr $width * 5]
+map add rows [expr $height * 5]
+map add columns [expr $width * 5]
 
 set largeNumber 10000000
-for { set y 0 } { $y < [llength $lines] } { incr y } {
-    for { set x 0 } { $x < [llength $lines] } { incr x } {
+for { set y 0 } { $y < $height } { incr y } {
+    for { set x 0 } { $x < $width } { incr x } {
         set danger [string index [lindex $lines $y] $x]
         map set cell $x $y $danger
         costs set cell $x $y $largeNumber
@@ -30,20 +30,37 @@ for { set y 0 } { $y < [llength $lines] } { incr y } {
 }
 costs set cell 0 0 0
 
-set target [list [expr $width - 1] [expr $height - 1]]
+for { set times 1 } { $times < 25 } { incr times } {
+    set repcol [expr $times % 5]
+    set reprow [expr $times / 5]
+    set xoffset [expr $repcol * $width]
+    set yoffset [expr $reprow * $height]
 
+    for { set y 0 } { $y < [llength $lines] } { incr y } {
+        for { set x 0 } { $x < [llength $lines] } { incr x } {
+            set cellx [expr $x + $xoffset]
+            set celly [expr $y + $yoffset]
+
+            set danger [map get cell $x $y]
+            set newDanger [expr ((($danger - 1) + $repcol + $reprow) % 9) + 1]
+            map set cell $cellx $celly $newDanger
+            costs set cell $cellx $celly $largeNumber
+        }
+    }
+}
+set height [expr $height * 5]
+set width [expr $width * 5]
+
+set target [list [expr $width - 1] [expr $height - 1]]
 
 set startPos [list 0 0]
 
 set queue [list $startPos]
 
+set startTime [clock milliseconds]
 set tries 0
 while { [llength $queue] > 0 } {
     lassign [lindex $queue 0] x y
-    if { ($x + 1) == $width && ($y + 1) == $height } {
-        #puts "SOLUTION FOUND, maybe!"
-        #break
-    }
     set queue [lrange $queue 1 end]
 
     set currentCost [costs get cell $x $y]
@@ -69,12 +86,17 @@ while { [llength $queue] > 0 } {
     }
     incr tries
 
-    #if { $tries > 500000 } {
-    #    puts "too many tries"
-    #    break
-    #}
+    if { $tries > 10000000 } {
+        puts "too many tries"
+        break
+    }
     if { ($tries % 10000) == 0 } {
-        puts "q [llength $queue]"
+        puts "tries $tries"
+        puts "queue length [llength $queue]"
+        set currentTime [clock milliseconds]
+        set took [expr ($currentTime - $startTime) / 1000.0]
+        puts "took $took"
+        puts "[expr $tries / $took] tries per second"
     }
 }
 
