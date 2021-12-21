@@ -4,8 +4,7 @@
 # area.
 # Do the same for y velocities.
 #
-# Then count how many pairs of x velocity and y velocity
-# have a non-empty intersection.
+# Then, for each pair of x and y velocity, 
 
 # example
 lassign [list 20 30 -10 -5] xStart xEnd yStart yEnd
