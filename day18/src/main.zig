@@ -12,11 +12,32 @@ pub const SNum = union(enum) {
     split: *SPair,
 };
 
-pub fn main() !void {
+pub fn main() void {
     var allocator = std.heap.page_allocator;
     var snum = SNum{ .num = 10 };
-    try reduceSNum(&snum, allocator);
+    reduceSNum(&snum, allocator) catch unreachable;
     printSNum(&snum);
+    std.debug.print("\n", .{});
+}
+
+pub fn num(value: usize) SNum {
+    return SNum{ .num = value };
+}
+
+pub fn snumAdd(first: *SNum, second: *SNum, allocator: Allocator) SNum {
+    var pair = allocator.create(SPair);
+    pair.first = first;
+    pair.second = second;
+    var snum = SNum{ .split = pair };
+    reduceSNum(&snum, allocator);
+    return snum;
+}
+
+pub fn snumMag(snum: SNum) usize {
+    switch (snum) {
+        .num => |n| return n,
+        .split => |pair| return 3 * snumMag(&pair.first) + 2 * snumMag(&pair.second),
+    }
 }
 
 pub fn printSNum(snum: *SNum) void {
@@ -46,7 +67,7 @@ pub fn reduceSNumHelper(snum: *SNum, depth: usize, rights: *ArrayList(SNum), lef
         std.debug.print("explode\n", .{});
         addToFirstRegular(lefts, snum.split.first.num);
         addToFirstRegular(rights, snum.split.second.num);
-        allocator.free(snum.split);
+        allocator.destroy(snum.split);
         snum.* = SNum{ .num = 0 };
         return true;
     } else if (snum.* == .num and snum.*.num >= 10) {
@@ -59,9 +80,9 @@ pub fn reduceSNumHelper(snum: *SNum, depth: usize, rights: *ArrayList(SNum), lef
             over2Up += 1;
         }
 
-        var spair: *SPair = try allocator.create(SPair);
-        spair.* = SPair{ .first = SNum{ .num = over2Down }, .second = SNum{ .num = over2Up } };
-        snum.* = SNum{ .split = spair };
+        var pair: *SPair = try allocator.create(SPair);
+        pair.* = SPair{ .first = SNum{ .num = over2Down }, .second = SNum{ .num = over2Up } };
+        snum.* = SNum{ .split = pair };
 
         return true;
     } else if (snum.* == .split) {
@@ -72,7 +93,7 @@ pub fn reduceSNumHelper(snum: *SNum, depth: usize, rights: *ArrayList(SNum), lef
         if (!reduced_left) {
             try lefts.append(snum.split.first);
             const reduced_right = try reduceSNumHelper(&snum.split.second, depth + 1, rights, lefts, allocator);
-            _ = rights.pop();
+            _ = lefts.pop();
             return reduced_right;
         } else {
             return reduced_left;
